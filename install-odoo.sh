@@ -46,7 +46,6 @@ main(){
  HOST= get_ip
  PORT=8069
  PASS=''
- pp=''
 
 
  check_x64
