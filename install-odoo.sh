@@ -295,6 +295,8 @@ create_odoo_config(){
   echo "db_user = odoo$VERSION" >> /etc/odoo$VERSION-server.conf
   echo "db_password = False" >> /etc/odoo$VERSION-server.conf
   echo "addons_path = /opt/odoo$VERSION/addons" >> /etc/odoo$VERSION-server.conf
+  echo "xmlrpc_interface = 127.0.0.1" >> /etc/odoo$VERSION-server.conf
+  echo "netrpc_interface = 127.0.0.1" >> /etc/odoo$VERSION-server.conf
   echo ";xmlrpc_port = $PORT" >> /etc/odoo$VERSION-server.conf
 }
 create_odoo_service(){
