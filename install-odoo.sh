@@ -208,6 +208,8 @@ configure_ufw(){
   service ufw start
   ufw allow ssh
   ufw allow $PORT/tcp
+  ufw allow 80/tcp
+
   echo "y" | ufw enable $answer
 }
 install_dependencies(){
@@ -253,7 +255,7 @@ fi
 create_user(){
   #create postgresql user
   #createuser odoo10 -U postgres -dRS | printf '123456\n123456\n' | ./install-odoo.sh
-  su - postgres || createuser odoo$VERSION -U postgres -dRS | printf '123456\n123456\n' || exit
+  su - postgres && createuser odoo$VERSION -U postgres -dRS && printf '123456\n123456\n' && exit
   #create odoo user
   adduser --system --home=/opt/odoo$VERSION --group odoo$VERSION
 
@@ -352,13 +354,13 @@ server_configuration(){
   proxy_buffer_size 128k;
 
   location / {
-  proxy_pass http://odoo;
+  proxy_pass $HOST:$PORT;
   proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
   proxy_redirect off;
 
-  proxy_set_header Host $host;
-  proxy_set_header X-Real-IP $remote_addr;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header Host \$host;
+  proxy_set_header X-Real-IP \$remote_addr;
+  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto https;
   }
 
@@ -372,7 +374,7 @@ server_configuration(){
 HERE
 
 ln -s /etc/nginx/sites-available/$HOST /etc/nginx/sites-enabled/$HOST
-
+rm /etc/nginx/sites-enabled/default
 systemctl restart nginx
 
 
