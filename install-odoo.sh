@@ -354,7 +354,7 @@ server_configuration(){
   proxy_buffer_size 128k;
 
   location / {
-  proxy_pass $HOST:$PORT;
+  proxy_pass http://odoo;
   proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
   proxy_redirect off;
 
