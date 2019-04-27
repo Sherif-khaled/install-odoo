@@ -1,10 +1,41 @@
 #!/bin/bash
+#
+# Author: Sherif Khaled
+# Copyright (c) 2019.
+#
+# This program is free software; you can redistribute it and/or modify it under the
+# terms of the GNU Lesser General Public License as published by the Free Software
+# Foundation; either version 3.0 of the License, or (at your option) any later
+# version.
+#
+# This install-odoo.sh script automates many of the instrallation and configuration
+# steps at
+#    https://www.odoo.com/documentation/10.0/setup/install.html
+#
+# Eamples:-
+# Install odoo version 10 and configure using server external IP address
+# .\install-odoo.sh -v 10
+#
+# Install odoo version 10 and configure using hostname odoo.example.com
+# .\install-odoo.sh -v 10 -s odoo.example.com
+#
+# Install odoo version 10 with a SSL certificate from Let's Encrypt using e-mail info@example.com:
+# .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com
+#
+# Install odoo version 10 with specific port 8070
+# .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com -r 8070
+#
+# Install odoo version 10 with postgres password and Master password
+# .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com -r 8070 -p sql123 -P admin123
+#
+# Note: this script tested on ubuntu 16.4.
+#
 
 USAGE(){
   cat 1>&2 <<HERE
   Installer script for setting up odoo system.
 
-  This script support odoo Version (9 ,10 ,11 ,12), also this script
+  This script support odoo Version (10 ,11 ,12), also this script
   supports installation on cloud host or localhost.
 
   USAGE:
@@ -13,11 +44,9 @@ USAGE(){
   OPTIONS (Install odoo system):
 
       -v    <version>          Install given version of odoo (e.g. '10.0') [required]
-      -m    <model>            Model of odoo system (e.g. 'community') [required]
-
       -p    <admin password>   Password for odoo administrator [recommended]
-      -P   <sql password>     setup password for postgresql [recommended]
-      -r <server port>      spsifec server port
+      -P    <sql password>     setup password for postgresql   [recommended]
+      -r    <server port>      spsifec server port
       -h                       Print help
 
   OPTIONS (support SSL)
@@ -26,13 +55,12 @@ USAGE(){
 
   EXAMPLES
 
-     setup a odoo system
+     setup odoo system
 
-        .\install-odoo.sh -v 10.0 -m community
-        .\install-odoo.sh -v 10.0 -m community -p admin123
-        .\install-odoo.sh -v 10.0 -m community -p admin123 -sp sql123
-        .\install-odoo.sh -v 10.0 -m community -p admin123 -sp sql123
-        .\install-odoo.sh -v 10.0 -m community -p admin123 -sp sql123 -port 8069
+        .\install-odoo.sh -v 10
+        .\install-odoo.sh -v 10 -s odoo.example.com -p 123
+        .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com -p 123 -P sql123
+        .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com -p 123 -P sql123 -r 8069
 
   SUPPORT:
       Source: https://github.com/Sherif-khaled/install-odoo
@@ -51,7 +79,7 @@ main(){
  HOST=$EXTERNAL_IP
  PORT=8069
 
-  while builtin getopts "hv:m:p:P:r:s:e:" opt "${@}"; do
+  while builtin getopts "hv:p:P:r:s:e:" opt "${@}"; do
     case $opt in
       h)
         USAGE
@@ -61,10 +89,6 @@ main(){
       v)
         VERSION=$OPTARG
         check_version $VERSION
-        ;;
-      m)
-        MODEL=$OPTARG
-        check_model $MODEL
         ;;
       p)
         PASS=$OPTARG
@@ -130,20 +154,6 @@ check_version(){
        err "the script not supported this version $ver"
   esac
 
-}
-check_model(){
-  model=''
-  if [ -z $1 ];then
-    err "please select odoo model"
-  else
-    if [ $1 == "community" ];then
-       model='community'
-    elif [ $1 == 'enterprise' ];then
-       model='enterprise'
-    else
-      err "check the model spling"
-    fi
-  fi
 }
 check_admin_pass(){
   if [ -z $1 ];then
@@ -238,7 +248,7 @@ install_dependencies(){
      eval "apt-get install ${dependencies[$i]} -y"
  done
 
- if [ $VERSION -eq 10 ];then
+ if [ $VERSION -eq 10 ] || [ $VERSION -eq 9 ];then
 
    for (( i = 0; i < ${#python_env[@]} ; i++ )); do
        printf "\n**** python env installing now: ${python_env[$i]} *****\n\n"
@@ -247,7 +257,7 @@ install_dependencies(){
        eval "apt-get install ${python_env[$i]} -y"
    done
 
-elif [ $VERSION -eq 12 ];then
+elif [ $VERSION -eq 12 ] || [ $VERSION -eq 11 ];then
   for (( i = 0; i < ${#python3_env[@]} ; i++ )); do
       printf "\n**** python3 env Installing now : ${python3_env[$i]} *****\n\n"
 
@@ -259,7 +269,9 @@ fi
 create_user(){
   #create postgresql user
   #createuser odoo10 -U postgres -dRS | printf '123456\n123456\n' | ./install-odoo.sh
-  su - postgres && createuser odoo$VERSION -U postgres -dRS && printf '123456\n123456\n' && exit
+#  su - postgres && createuser odoo$VERSION -U postgres -dRS && printf '123456\n123456\n' && exit
+  sudo -u postgres -H -- psql -d postgres -c "CREATE USER odoo$VERSION WITH PASSWORD '$PASS'"
+	sudo -u postgres -H -- psql -d postgres -c "ALTER USER odoo$VERSION WITH SUPERUSER;"
   #create odoo user
   adduser --system --home=/opt/odoo$VERSION --group odoo$VERSION
 
@@ -386,10 +398,10 @@ systemctl restart nginx
 
 }
 create_ssl_cert(){
-  add-apt-repository ppa:certbot/certbot
+  echo -n "\n" | add-apt-repository ppa:certbot/certbot
   apt-get update
   apt-get install python-certbot-nginx -y
-  certbot --nginx -d $HOST -d www.$HOST -m $EMAIL --agree-tos
+  yes N | certbot --nginx -d $HOST -d www.$HOST -m $EMAIL --agree-tos
   openssl dhparam -out /etc/nginx/dhparams.pem 4096
   chmod 600 /etc/nginx/dhparams.pem
   service nginx restart
@@ -491,10 +503,17 @@ test_the_server(){
 }
 print_url(){
   if [ -z $EMAIL ];then
-    echo http://$HOST
+    HOST=http://$HOST
   else
-    echo https://$HOST
+    HOST=https://$HOST
   fi
+  cat 1>&2 <<HERE
+         ******************************************************************
+         *           Installation completed successfully
+         *           URL: $HOST
+         *
+         ******************************************************************
+HERE
 }
 
 main "$@" || exit 1
