@@ -17,16 +17,16 @@
 # .\install-odoo.sh -v 10
 #
 # Install odoo version 10 and configure using hostname odoo.example.com
-# .\install-odoo.sh -v 10 -s odoo.example.com
+# .\install-odoo.sh -v 10 -S odoo.example.com
 #
 # Install odoo version 10 with a SSL certificate from Let's Encrypt using e-mail info@example.com:
-# .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com
+# .\install-odoo.sh -v 10 -S odoo.example.com -M info@example.com
 #
 # Install odoo version 10 with specific port 8070
-# .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com -r 8070
+# .\install-odoo.sh -v 10 -S odoo.example.com -M info@example.com -r 8070
 #
 # Install odoo version 10 with postgres password and Master password
-# .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com -r 8070 -p sql123 -P admin123
+# .\install-odoo.sh -v 10 -S odoo.example.com -M info@example.com -r 8070 -p sql123 -a admin123
 #
 # Note: this script tested on ubuntu 16.4.
 #
@@ -43,24 +43,29 @@ USAGE(){
 
   OPTIONS (Install odoo system):
 
-      -v    <version>          Install given version of odoo (e.g. '10.0') [required]
-      -p    <admin password>   Password for odoo administrator [recommended]
-      -P    <sql password>     setup password for postgresql   [recommended]
-      -r    <server port>      spsifec server port
-      -h                       Print help
+      -v    <version>        Install given version of odoo (e.g. '10.0') [required]
+      -e    <is enterprise>  chose if odoo is enterprise                 [optional]
+      -a    <admin password> Password for odoo administrator             [recommended]
+      -p    <sql password>   setup password for postgresql               [recommended]
+      -r    <server port>    spsifec server port,default port 8069       [optional]
+      -w    <wkhtmltopdf>    install wkhtmltopdf pachage.                [optional]
+      -s    <nginx/apache>   select the server type,default nginx server [optional]
+      -h                     Print help
 
   OPTIONS (support SSL)
-      -s    <hostname>         Configure server with <hostname> [required]
-      -e    <email>            E-mail for Let's Encrypt certbot [required]
+      -S    <hostname>       Configure server with <hostname> [required]
+      -M    <email>          E-mail for Let's Encrypt certbot [required]
+      -K    <RSA Size>       Select SSL RSA Size 2048/4069 bit,default 2048 bit RSA [optional]
+
 
   EXAMPLES
 
      setup odoo system
 
         .\install-odoo.sh -v 10
-        .\install-odoo.sh -v 10 -s odoo.example.com -p 123
-        .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com -p 123 -P sql123
-        .\install-odoo.sh -v 10 -s odoo.example.com -e info@example.com -p 123 -P sql123 -r 8069
+        .\install-odoo.sh -v 10 -S odoo.example.com -a 123
+        .\install-odoo.sh -v 10 -S odoo.example.com -M info@example.com -a 123 -p sql123
+        .\install-odoo.sh -v 10 -S odoo.example.com -M info@example.com -a 123 -p sql123 -r 8069
 
   SUPPORT:
       Source: https://github.com/Sherif-khaled/install-odoo
@@ -73,13 +78,18 @@ main(){
 
  check_x64
  check_mem
- check_ubuntu 16.04
+ #check_ubuntu 16.04
 
+# Default Parameters
  get_ip
  HOST=$EXTERNAL_IP
  PORT=8069
+ IS_ENTERPRISE=false
+ INSTALL_WKHTMLTOPDF=false
+ SERVER_TYPE="nginx"
+ RSA_DH_SIZE=2048
 
-  while builtin getopts "hv:p:P:r:s:e:" opt "${@}"; do
+  while builtin getopts "hv:a:p:r:s:S:M:k:ew" opt "${@}"; do
     case $opt in
       h)
         USAGE
@@ -90,11 +100,14 @@ main(){
         VERSION=$OPTARG
         check_version $VERSION
         ;;
-      p)
+      e)
+        IS_ENTERPRISE=true
+        ;;
+      a)
         PASS=$OPTARG
         check_admin_pass $PASS
         ;;
-      P)
+      p)
         SQL_PASS=$OPTARG
         check_sql_pass $SQL_PASS
         ;;
@@ -102,23 +115,31 @@ main(){
         PORT=$OPTARG
         check_port $PORT
         ;;
+      w)
+        INSTALL_WKHTMLTOPDF=true
+        ;;
       s)
+        SERVER=$OPTARG
+        check_server_type $SERVER
+      S)
         HOST=$OPTARG
         check_host $HOST
         ;;
-      e)
+      M)
         EMAIL=$OPTARG
         check_email $EMAIL
         ;;
-
+      K)
+        RSA_DH_SIZE=$OPTARG
+        check_rsa_size $RSA_DH_SIZE
+        ;;
       :)
         err "Missing option argument for -$OPTARG"
         exit 1
         ;;
-
       \?)
         err "Invalid option: -$OPTARG" >&2
-        usage
+        USAGE
         ;;
     esac
   done
@@ -126,7 +147,7 @@ install_odoo
 }
 
 
-
+# Check root privilege,the script required root privilege to make all configurations
 check_root() {
   if [ $EUID != 0 ]; then err "You must run this script as root."; fi
 }
@@ -138,9 +159,6 @@ err(){
 check_version(){
   ver=$1
   case $ver in
-    9)
-       return $ver
-      ;;
     10)
        return $ver
       ;;
@@ -191,6 +209,19 @@ check_email(){
     err "please enter your email"
   fi
 }
+check_rsa_size(){
+  size=$1
+  case $size in
+    2048)
+       return $size
+      ;;
+    4096)
+       return $size
+      ;;
+    *)
+       err "the script not supported this RSA size $size"
+  esac
+}
 check_mem() {
   MEM=`grep MemTotal /proc/meminfo | awk '{print $2}'`
   MEM=$((MEM/1000))
@@ -206,28 +237,44 @@ check_x64() {
   UNAME=`uname -m`
   if [ "$UNAME" != "x86_64" ]; then err "You must run this command on a 64-bit server."; fi
 }
-check_apache2() {
+#Check apache/nginx server
+check_server_type() {
   if dpkg -l | grep -q apache2; then err "You must unisntall apache2 first"; fi
+  if [ $1 == "nginx" ];then
+    if dpkg -l | grep -q apache2; then
+      apt-get purge apache2
+      apt-get auto-remove
+    fi
+  elif [ $1 == "apache2" ];then
+    if dpkg -l | grep -q apache2; then
+      apt-get purge nginx
+      apt-get auto-remove
+    fi
+  else
+    err "you select unsupported server, or uncorrected spelling [apache2/nginx]"
+  fi
 }
+# Update repositories,and upgrade system
 upgrade_system(){
   echo -e "\n---- Update Server ----"
   apt update
   apt dist-upgrade -y
 }
+# configure and allow ports in UFW firewall
 configure_ufw(){
   service ufw start
-  ufw allow ssh
-  ufw allow $PORT/tcp
-  ufw allow 80/tcp
+  ufw allow ssh       # allow ssh port
+  ufw allow $PORT/tcp # allow odoo port
+  ufw allow 8072/tcp  # allow longpolling port
+  ufw allow 80/tcp    # allow http port
 
   if [ ! -z $EMAIL ];then
-  	ufw allow 443/tcp
+  	ufw allow 443/tcp # allow https port
   fi
-
   echo "y" | ufw enable $answer
 }
+#Install all dependencies
 install_dependencies(){
-#REF  https://www.getopenerp.com/install-odoo-12-on-ubuntu-18-04/
 
   declare -a dependencies=("git" "postgresql" "postgresql-server-dev-9.5" "libzip-dev"
                            "libxml2-dev" "build-essential" "wget" "libxslt-dev" "libldap2-dev"
@@ -236,10 +283,10 @@ install_dependencies(){
                            "libfreetype6-dev" "liblcms2-dev" "liblcms2-utils" "libwebp-dev"
                            "tcl8.6-dev" "tk8.6-dev" "libyaml-dev" "fontconfig")
 
- declare -a python_env=("python-pip" "python-all-dev" "python-dev" "python-setuptools" "python-tk")
+ declare -a python_env=("python-pip" "python-all-dev" "python-dev" "python-setuptools" "python-tk" "gevent" "psycogreen")
 
  declare -a python3_env=("python3-pip" "python3-software-properties" "python3-all-dev" "python3-dev"
-                         "python3-setuptools" "python3-tk" "python3-venv" "python3-wheel")
+                         "python3-setuptools" "python3-tk" "python3-venv" "python3-wheel" "python3-gevent")
 
  for (( i = 0; i < ${#dependencies[@]} ; i++ )); do
      printf "\n**** Basic dependencies installing now: ${dependencies[$i]} *****\n\n"
@@ -266,18 +313,20 @@ elif [ $VERSION -eq 12 ] || [ $VERSION -eq 11 ];then
   done
 fi
 }
+# Create postgresql user and odoo user
 create_user(){
   #create postgresql user
-  #createuser odoo10 -U postgres -dRS | printf '123456\n123456\n' | ./install-odoo.sh
-#  su - postgres && createuser odoo$VERSION -U postgres -dRS && printf '123456\n123456\n' && exit
   sudo -u postgres -H -- psql -d postgres -c "CREATE USER odoo$VERSION WITH PASSWORD '$PASS'"
 	sudo -u postgres -H -- psql -d postgres -c "ALTER USER odoo$VERSION WITH SUPERUSER;"
   #create odoo user
   adduser --system --home=/opt/odoo$VERSION --group odoo$VERSION
+  adduser odoo$VERSION sudo
 
 }
+# create Logs Directory
 configure_logs(){
   mkdir /var/log/odoo$VERSION
+  chown odoo$VERSION:odoo$VERSION /var/log/odoo$VERSION
 }
 install_python_dependencies(){
 
@@ -294,14 +343,16 @@ install_python_dependencies(){
   #Install Less CSS via Node.js and npm
   curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
   apt install -y nodejs
-  npm install -g less less-plugin-clean-css
+  npm install -g less less-plugin-clean-css rtlcss
 
-  #Install Stable Wkhtmltopdf
-  cd /tmp
-  wget https://downloads.wkhtmltopdf.org/0.12/0.12.1/wkhtmltox-0.12.1_linux-trusty-amd64.deb
-  dpkg -i wkhtmltox-0.12.1_linux-trusty-amd64.deb
-  cp /usr/local/bin/wkhtmltopdf /usr/bin
-  cp /usr/local/bin/wkhtmltoimage /usr/bin
+  #Install Wkhtmltopdf
+  if [ $INSTALL_WKHTMLTOPDF = true ];then
+    cd /tmp
+    wget https://downloads.wkhtmltopdf.org/0.12/0.12.1/wkhtmltox-0.12.1_linux-trusty-amd64.deb
+    dpkg -i wkhtmltox-0.12.1_linux-trusty-amd64.deb
+    ln -s /usr/local/bin/wkhtmltopdf /usr/bin
+    ln -s /usr/local/bin/wkhtmltoimage /usr/bin
+  fi
 }
 create_odoo_config(){
   echo "[options]" >> /etc/odoo$VERSION-server.conf
@@ -310,7 +361,11 @@ create_odoo_config(){
   echo "db_port = False" >> /etc/odoo$VERSION-server.conf
   echo "db_user = odoo$VERSION" >> /etc/odoo$VERSION-server.conf
   echo "db_password = False" >> /etc/odoo$VERSION-server.conf
-  echo "addons_path = /opt/odoo$VERSION/addons" >> /etc/odoo$VERSION-server.conf
+  if [ $IS_ENTERPRISE = true ]; then
+    echo "addons_path = /opt/odoo$VERSION/enterprise/addons" >> /etc/odoo$VERSION-server.conf
+  else
+    echo "addons_path = /opt/odoo$VERSION/addons" >> /etc/odoo$VERSION-server.conf
+  fi
   echo "xmlrpc_interface = 127.0.0.1" >> /etc/odoo$VERSION-server.conf
   echo "netrpc_interface = 127.0.0.1" >> /etc/odoo$VERSION-server.conf
   echo ";xmlrpc_port = $PORT" >> /etc/odoo$VERSION-server.conf
@@ -326,7 +381,11 @@ create_odoo_service(){
   echo "SyslogIdentifier=odoo-server" >> /lib/systemd/system/odoo$VERSION-server.service
   echo "User=odoo$VERSION" >> /lib/systemd/system/odoo$VERSION-server.service
   echo "Group=odoo$VERSION" >> /lib/systemd/system/odoo$VERSION-server.service
-  echo "ExecStart=/opt/odoo$VERSION/odoo-bin --config=/etc/odoo$VERSION-server.conf --addons-path=/opt/odoo$VERSION/addons/" >> /lib/systemd/system/odoo$VERSION-server.service
+  if [ $IS_ENTERPRISE = true ]; then
+    echo "ExecStart=/opt/odoo$VERSION/odoo-bin --config=/etc/odoo$VERSION-server.conf --addons-path=/opt/odoo$VERSION/enterprise/addons/" >> /lib/systemd/system/odoo$VERSION-server.service
+  else
+    echo "ExecStart=/opt/odoo$VERSION/odoo-bin --config=/etc/odoo$VERSION-server.conf --addons-path=/opt/odoo$VERSION/addons/" >> /lib/systemd/system/odoo$VERSION-server.service
+  fi
   echo "WorkingDirectory=/opt/odoo$VERSION/" >> /lib/systemd/system/odoo$VERSION-server.service
   echo "StandardOutput=journal+console" >> /lib/systemd/system/odoo$VERSION-server.service
   echo "[Install]" >> /lib/systemd/system/odoo$VERSION-server.service
@@ -351,8 +410,43 @@ odoo_configuration(){
 
 }
 server_configuration(){
-  check_apache2
 
+  if [ $SERVER == "apache" ];then
+
+    apt-get install apache2
+    a2enmod proxy proxy_http
+
+    cat > /etc/apache2/sites-available/$HOST << HERE
+    <VirtualHost *:80>
+      ServerName $HOST
+      ServerAlias www.$HOST
+
+      LogLevel warn
+      ErrorLog /var/log/apache2/$HOST.error.log
+      CustomLog /var/log/apache2/$HOST.access.log combined
+
+      ProxyRequests Off
+      <Proxy *>
+        Order deny,allow
+        Allow from all
+      </Proxy>
+
+      ProxyPass / http://$HOST:$PORT/
+      ProxyPassReverse / http://$HOST:$PORT/
+      <Location />
+        Order allow,deny
+        Allow from all
+      </Location>
+    </VirtualHost>
+
+HERE
+
+  rm /etc/nginx/sites-enabled/default
+  a2dissite 000-default.conf
+  a2ensite $HOST.conf
+  systemctl restart apache2
+
+  else
   apt-get install nginx -y
   systemctl enable nginx
 
@@ -372,29 +466,32 @@ server_configuration(){
   proxy_buffer_size 128k;
 
   location / {
-  proxy_pass http://odoo;
-  proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
-  proxy_redirect off;
+    proxy_pass http://odoo;
+    proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+    proxy_redirect off;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+   }
 
-  proxy_set_header Host \$host;
-  proxy_set_header X-Real-IP \$remote_addr;
-  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto https;
-  }
+  location /longpolling {
+    proxy_pass http://127.0.0.1:8072;
+   }
 
   location ~* /web/static/ {
-  proxy_cache_valid 200 60m;
-  proxy_buffering on;
-  expires 864000;
-  proxy_pass http://odoo;
-  }
+    proxy_cache_valid 200 60m;
+    proxy_buffering on;
+    expires 864000;
+    proxy_pass http://odoo;
+   }
   }
 HERE
 
 ln -s /etc/nginx/sites-available/$HOST /etc/nginx/sites-enabled/$HOST
 rm /etc/nginx/sites-enabled/default
 systemctl restart nginx
-
+fi
 
 }
 create_ssl_cert(){
@@ -402,16 +499,64 @@ create_ssl_cert(){
   apt-get update
   apt-get install python-certbot-nginx -y
   yes N | certbot --nginx -d $HOST -d www.$HOST -m $EMAIL --agree-tos
-  openssl dhparam -out /etc/nginx/dhparams.pem 4096
+  openssl dhparam -out /etc/nginx/dhparams.pem $RSA_DH_SIZE
   chmod 600 /etc/nginx/dhparams.pem
   service nginx restart
 }
 configur_ssl_server(){
+
+  if [ $SERVER == "apache" ];then
+    cat > /etc/apache2/sites-available/$HOST << HERE
+
+  <VirtualHost *:80>
+       ServerName $HOST
+       ServerAlias $HOST
+       Redirect / https://$HOST
+  </VirtualHost>
+
+  <VirtualHost *:443>
+       ServerName $HOST
+       ServerAlias $HOST
+
+       LogLevel warn
+       ErrorLog /var/log/apache2/$HOST.error.log
+       CustomLog /var/log/apache2/$HOST.access.log combined
+
+       SSLEngine on
+       SSLProxyEngine on
+       SSLCertificateFile /etc/letsencrypt/live/$HOST/fullchain.pem
+       SSLCertificateKeyFile /etc/letsencrypt/live/$HOST/privkey.pem
+
+       ssl_dhparam /etc/apache2/dhparams.pem
+
+       ProxyPreserveHost On
+       ProxyPass / http://127.0.0.1:$PORT/ retry=0
+       ProxyPassReverse / http://127.0.0.1:$PORT/
+  </VirtualHost>
+  # modern configuration, tweak to your needs
+  SSLProtocol             all -SSLv3 -TLSv1 -TLSv1.1
+  SSLCipherSuite          ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256
+  SSLHonorCipherOrder     on
+  SSLCompression          off
+  SSLSessionTickets       off
+
+  # OCSP Stapling, only in httpd 2.3.3 and later
+  SSLUseStapling          on
+  SSLStaplingResponderTimeout 5
+  SSLStaplingReturnResponderErrors off
+  SSLStaplingCache        shmcb:/var/run/ocsp(128000)
+HERE
+
+a2enmod ssl proxy proxy_http
+systemctl restart apache2
+  else
+
   rm /etc/nginx/sites-available/$HOST
   cat > /etc/nginx/sites-available/$HOST << HERE
+
 # Odoo servers
 upstream odoo {
- server 127.0.0.1:8069;
+ server 127.0.0.1:$PORT;
 }
 # HTTP -> HTTPS
 server {
@@ -422,10 +567,11 @@ server {
    listen 443 ssl http2;
    server_name $HOST;
 
+   # certs sent to the client in SERVER HELLO are concatenated in ssl_certificate
    ssl_certificate /etc/letsencrypt/live/$HOST/fullchain.pem;
    ssl_certificate_key /etc/letsencrypt/live/$HOST/privkey.pem;
-   ssl_session_cache   shared:SSL:10m;
-   ssl_session_timeout 10m;
+   ssl_session_timeout 1d;
+   ssl_session_cache shared:SSL:50m;
    ssl_session_tickets off;
 
    ssl_dhparam /etc/nginx/dhparams.pem;
@@ -434,11 +580,16 @@ server {
    ssl_ciphers 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA';
    ssl_prefer_server_ciphers on;
 
+   # HSTS (ngx_http_headers_module is required) (15768000 seconds = 6 months)
    add_header Strict-Transport-Security max-age=15768000;
 
+   # fetch OCSP records from URL in ssl_certificate and cache them
    ssl_stapling on;
    ssl_stapling_verify on;
+
+   # verify chain of trust of OCSP response using Root CA and Intermediate certs
    ssl_trusted_certificate /etc/letsencrypt/live/$HOST/chain.pem;
+
    resolver 8.8.8.8 8.8.4.4;
 
    access_log /var/log/nginx/odoo$VERSION.access.log;
@@ -456,21 +607,24 @@ server {
      proxy_redirect off;
      proxy_pass http://odoo;
    }
-
-
+   location /longpolling {
+     proxy_pass http://127.0.0.1:8072;
+   }
    location ~* /web/static/ {
        proxy_cache_valid 200 90m;
        proxy_buffering    on;
        expires 864000;
        proxy_pass http://odoo;
-  }
+   }
 
   # gzip
   gzip_types text/css text/less text/plain text/xml application/xml application/json application/javascript;
   gzip on;
 }
 HERE
-service nginx restart
+systemctl restart nginx
+
+fi
 }
 install_odoo(){
   upgrade_system
@@ -479,6 +633,42 @@ install_odoo(){
   create_user
   configure_logs
   git clone https://www.github.com/odoo/odoo --depth 1 --branch $VERSION.0 --single-branch /opt/odoo$VERSION
+  if [ $IS_ENTERPRISE = true ];then
+
+    # Odoo Enterprise install!
+
+   ln -s /usr/bin/nodejs /usr/bin/node
+   mkdir odoo$VERSION/enterprise
+   mkdir odoo$VERSION/enterprise/addons
+
+    GITHUB_RESPONSE=$(git clone --depth 1 --branch $VERSION.0 https://www.github.com/odoo/enterprise "/opt/odoo$VERSION/enterprise/addons" 2>&1)
+    while [[ $GITHUB_RESPONSE == *"Authentication"* ]]; do
+      ((count++))
+        echo "------------------------WARNING------------------------------"
+        echo "Your authentication with Github has failed! Please try again."
+        printf "In order to clone and install the Odoo enterprise version you \nneed to be an offical Odoo partner and you need access to\nhttp://github.com/odoo/enterprise.\n"
+        echo "TIP: Press ctrl+c to stop this script."
+        echo "-------------------------------------------------------------"
+        echo " $count attempt from 4 attempts "
+        GITHUB_RESPONSE=$(sudo git clone --depth 1 --branch 12.0 https://www.github.com/odoo/enterprise "~/Desktop/enterprise/addons" 2>&1)
+        if [ $count -eq 1 ];then
+          echo "please check your github credentials and try again later."
+          read -r -p "Do you want continue to configure server to using odoo community? [Y/N]" answer
+          case $answer in [yY][eE][sS]|[yY])
+          break
+          ;;
+             [nN][oO]|[nN])
+          exit 1
+                ;;
+             *)
+          echo "Invalid answer..."
+          exit 1
+          ;;
+         esac
+        fi
+
+    done
+  fi
   install_python_dependencies
 
   odoo_configuration
@@ -511,7 +701,6 @@ print_url(){
          ******************************************************************
          *           Installation completed successfully
          *           URL: $HOST
-         *
          ******************************************************************
 HERE
 }
