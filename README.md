@@ -73,4 +73,4 @@ but the installation take 10 minutes as average time.
 
 <h2>FAQ</h2>
 <h4>Found a bug?</h4>
-if you founded a bug you can submit your bug here <a href="https://github.com/Sherif-khaled/install-odoo/issues/new">Submit Bug</a>
+if you found a bug you can submit your bug here <a href="https://github.com/Sherif-khaled/install-odoo/issues/new">Submit Bug</a>
