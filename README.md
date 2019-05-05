@@ -1,7 +1,7 @@
 # install-odoo
-odoo-install.sh is a BASH shell script that automates the step-by-step instructions for installing and configuring a odoo server.
+odoo-install.sh is a BASH shell script that,will install and configure the odoo system,<br> without user interaction with the script<br>
 
-the speed of installation depending on your server and network speed,
+the speed of installation depending on your server and network speed,<br>
 but the installation take 10 minutes as average time.
 
 <h2>Script Requirements</h2>
@@ -32,34 +32,43 @@ but the installation take 10 minutes as average time.
    <li>select odoo version you want to install</li>
 </ol>
 <h2>Usage</h2>
-<h4>Select odoo Version</h4>
+
+<h4>elect odoo Version:-</h4>
 <p>Select your odoo version you want to install (ver 10 as example)</p>
 <code>./install-odoo.sh -v 10 </code>
-<h4>Select odoo enterprise Version</h4>
+
+<h4>Select odoo enterprise Version:-</h4>
 <p>you must have github repository credential to install enterprise version</p>
 <code>./install-odoo.sh -v 10 -e </code>
-<h4>Installing with choosing port value</h4>
+
+<h4>Installing with choosing port value:-</h4>
 <p>you can select port between range [8060 - 8090],<br>except port 8072 becouse this port reserved for longpolling</p>
 <code>./install-odoo.sh -v 10 -S odoo.example.com -r 8070</code>
 
-<h4>Installing with choosing server type</h4>
+<h4>Installing with choosing server type:-</h4>
 <p>you can choosing the server type between [nginx - apache],<br>if you not choosing the server type the script will configure domain name with nginx server.</p>
 <code>./install-odoo.sh -v 10 -S odoo.example.com -s apache</code>
-<h4>Install With Hostname</h4>
+
+<h4>Install With Hostname:-</h4>
 <p>if you not specific the domain name,the script will configure odoo with external ip.</p>
 <code>./install-odoo.sh -v 10 -S odoo.example.com </code><br>
-<h4>Support SSL Certificat</h4>
+
+<h4>Support SSL Certificat:-</h4>
 <p>you can't support SSL without the domain name.</p>
-<code>./install-odoo.sh -v 10 -S odoo.example.com -M info@eample.com </code>
+<code>./install-odoo.sh -v 10 -S odoo.example.com -M info@eample.com </code><br>
 <note>Note: SSL using the 2048-bit RSA keys by default.</note>
-<h4>Support with choosing RSA-DH size</h4>
-<code>./install-odoo.sh -v 10 -S odoo.example.com -M info@eample.com -K 4096</code>
+
+<h4>Support with choosing RSA-DH size:-</h4>
+<code>./install-odoo.sh -v 10 -S odoo.example.com -M info@eample.com -K 4096</code><br>
 <note>Note: SSL using the 2048-bit RSA keys by default.</note>
-<h4>Installing with choosing Master Admin Password</h4>
+
+<h4>Installing with choosing Master Admin Password:-</h4>
 <code>./install-odoo.sh -v 10 -S odoo.example.com -a admin123</code>
-<h4>Installing with choosing postgresql user Password</h4>
+
+<h4>Installing with choosing postgresql user Password:-</h4>
 <code>./install-odoo.sh -v 10 -S odoo.example.com -p sql123</code>
-<h4>Installing with wkhtmltopdf</h4>
+
+<h4>Installing with wkhtmltopdf:-</h4>
 <code>./install-odoo.sh -v 10 -S odoo.example.com -w</code>
 
 
