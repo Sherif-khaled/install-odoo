@@ -71,4 +71,6 @@ but the installation take 10 minutes as average time.
 <h4>Installing with wkhtmltopdf:-</h4>
 <code>./install-odoo.sh -v 10 -S odoo.example.com -w</code>
 
-
+<h2>FAQ</h2>
+<h4>Found a bug?</h4>
+if you founded a bug you can submit your bug here <a href="https://github.com/Sherif-khaled/install-odoo/issues/new">Submit Bug</a>
