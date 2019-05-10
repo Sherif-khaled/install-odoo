@@ -1,6 +1,5 @@
-[![made-with-bash](https://img.shields.io/badge/Made%20with-Bash-1f425f.svg)](https://www.gnu.org/software/bash/)
-[![Documentation Status](https://readthedocs.org/projects/ansicolortags/badge/?version=latest)](http://ansicolortags.readthedocs.io/?badge=latest)
-[![GitHub license](https://img.shields.io/github/license/Naereen/StrapDown.js.svg)](https://github.com/Naereen/StrapDown.js/blob/master/LICENSE)
+
+[![GitHub license](https://img.shields.io/eclipse-marketplace/l/notepad4e.svg)](https://github.com/Sherif-khaled/install-odoo/blob/2.0/LICENSE)
 
 # install-odoo
 odoo-install.sh is a BASH shell script that,will install and configure the odoo system,<br> without user interaction with the script<br>
