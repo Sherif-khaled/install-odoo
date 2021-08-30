@@ -192,7 +192,7 @@ check_port(){
   re='^[0-9]+$'
   if ! [[ $1 =~ $re ]] ; then
 	   err "the port value must be a number"	
-  elif [ $1 -gt 8090 ] && [ $1 -lt 8060 ];then
+  elif [ $1 -gt 8090 ] || [ $1 -lt 8060 ];then
        err "the port number must be between [8060] and [8090]"
   fi
 }
