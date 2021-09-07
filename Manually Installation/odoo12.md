@@ -1,34 +1,41 @@
+
 <h1>Deploy odoo 12 on ubuntu 18.4</h1>
 
-<h3>Installation Requirement</h3>
+<h3># Installation Requirement</h3>
 <ul>
   <li>VPS Server</li>
   <li>Make Sure you have Domain or subdomain and tied with server ip</li>
   <li>open ports [80, 443, 8069] if your server behind firewall</li>
 </ul>
 
-<h3>Befor you begin</h3>
+<h3># Befor you begin</h3><br>
+
+<p>Login to you Ubuntu machine as a sudo user and update the system to the latest packages:</p>
 
 <code>sudo apt update && sudo apt upgrade</code>
 
-<h3>Install Server dependencies</h3>
+<h3># Install Server dependencies</h3>
 
 <code>sudo apt install git nano python3-pip build-essential wget python3-dev python3-venv python3-wheel libxslt-dev libzip-dev libldap2-dev libsasl2-dev python3-setuptools node-less</code>
 
-<h3>Create Odoo user</h3>
-<code>sudo useradd -m -d /opt/odoo12 -U -r -s /bin/bash odoo12</code>
+<h3># Create Odoo user</h3><br>
 
-<h3>Install and Configure PostgreSQL</h3>
+<p>Create a new system user for Odoo named odoo12 with home directory /opt/odoo12 using the following command:</p>
+<code>sudo useradd -m -d /opt/odoo12 -U -r -s /bin/bash odoo12</code><br><br>
+
+<p><strong>Tip: </strong>You can use any name for your Odoo user as long you create a PostgreSQL user with the same name.</p>
+
+<h3># Install and Configure PostgreSQL</h3>
 <code>sudo apt install postgresql</code>
 <br><br>
 <code>sudo su - postgres -c "createuser -s odoo12"</code>
 
-<h3>Install Wkhtmltopdf </h3>
+<h3># Install Wkhtmltopdf </h3>
 <code>wget https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.bionic_amd64.deb</code>
 <br><br>
 <code>sudo apt install ./wkhtmltox_0.12.5-1.bionic_amd64.deb</code>
 
-<h3>Install and Configure Odoo</h3>
+<h3># Install and Configure Odoo</h3>
 
 <code>sudo su - odoo12</code>
 <br><br>
@@ -69,10 +76,10 @@
   <button type="button"></button>
 </pre>
 <br>
-<p>Do not forget to change the <code>my_admin_passwd</code> to something more secure.</p>
+<p><strong>Tip: </strong>Do not forget to change the <code>my_admin_passwd</code> to something more secure.</p>
 <br><br>
 
-<h3>Create a Systemd Unit File</h3>
+<h3># Create a Systemd Unit File</h3>
 
 <code>sudo nano /etc/systemd/system/odoo12.service</code>
 <br>
@@ -96,7 +103,9 @@
   WantedBy=multi-user.target
  
  </code>
-</pre>
+</pre><br>
+
+<p>Notify systemd that a new unit file exist and start the Odoo service by running:</p>
 
 <pre>
  <code>
@@ -110,6 +119,7 @@
 
 <code>sudo systemctl status odoo12</code><br><br>
 
+if every thing is ok, you will show the odoo status like this.<br>
 <pre>
  <code>
   * odoo12.service - Odoo12
@@ -123,17 +133,19 @@
  </code>
 </pre><br>
 
+<p>Enable the Odoo service to be automatically started at boot time:</p>
+
 <code>sudo systemctl enable odoo12</code><br>
 
-<h3>Test the Installation</h3>
+<h3># Test the Installation</h3>
 <p>
- Open your browser and type: http://<your_domain_or_IP_address>:8069
+ Open your browser and type: http://your_domain_or_IP_address:8069
  Assuming the installation is successful, a screen similar to the following will appear:
 </p>
   
   <img src="https://raw.githubusercontent.com/Sherif-khaled/install-odoo/2.0/odoo-test.webp"><br><br>
   
-  <h3>Configure Nginx as SSL and proxy</h3><br>
+  <h3># Configure Nginx as SSL and proxy</h3><br>
   
   <code>sudo apt install nginx certbot</code><br>
   <code>sudo systemctl stop nginx</code><br>
@@ -207,14 +219,18 @@ server {
     </code>
   </pre><br><br>
   
+  <p>Once you are done, restart the Nginx service with</p>
   <code>sudo systemctl restart nginx</code><br>
   
+  <p>Next, we need to tell Odoo that we will use proxy. To do so, open the configuration file and add the following line:</p>
   <code>sudo nano /etc/odoo12.conf</code><br>
   
   <code>proxy_mode = True</code><br>
   
+  <p>Restart the Odoo service for the changes to take effect</p>
   <code>sudo systemctl restart odoo12</code><br>
-  
+
+  <p>At this point, your server is configured and you can access your Odoo instance at:<strong> https://your-domain.com</strong></p>
   
   
   
