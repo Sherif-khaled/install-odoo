@@ -229,7 +229,15 @@ server {
   <p>Restart the Odoo service for the changes to take effect</p>
   <code>sudo systemctl restart odoo12</code><br>
 
-  <p>At this point, your server is configured and you can access your Odoo instance at:<strong> https://your-domain.com</strong></p>
+  <p>At this point, your server is configured and you can access your Odoo instance at:<strong> https://your-domain.com</strong></p><br>
+  
+  <h2>Change Default Port</h2>
+  <code>
+  xmlrpc_port = 8077
+proxy_mode = True
+</code><br>
+  
+  
   
   
   
